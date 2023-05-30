@@ -50,10 +50,8 @@ import numpy as np
 
 # ---------------------------------------------------------------------------- #
 
-env = gym.make('Taxi-v3')
-
-print("State space:", env.observation_space)  # All states
-print("Action space:", env.action_space)      # All actions for each state
+env_name = 'Taxi-v3'
+env = gym.make(env_name)
 
 q_table = np.zeros([env.observation_space.n, env.action_space.n])
 """Q-table holds Q-values for each state and each action in a matrix. 
@@ -63,9 +61,7 @@ It is filled during the learning process and used to make decisions after the al
 # ---------------------------------------------------------------------------- #
 #                                Hyperparameters                               #
 # ---------------------------------------------------------------------------- #
-
-
-alpha = 0.1
+alpha = 1
 """Alpha is the learning rate (0 < α ≤ 1) —
 Just like in supervised learning settings,
 α is the extent to which our Q-values are
@@ -86,7 +82,7 @@ random action instead of selecting the best
 learned Q-value. Higher epsilon values result
 in episodes with more penalties."""
 
-n_episodes = 100000
+n_episodes = 10000
 """Number of training episodes - each episode
 lasts from the initial state until reaching
 terminating state - success or fail - or
@@ -103,47 +99,38 @@ terminated, truncated = False, False
 Termination: The taxi drops off the passenger.
 Truncation: The length of the episode is 200."""
 
-all_epochs = []
-all_penalties = []
-
 for i in range(n_episodes + 1):
 
+    # Initial random state
     state, _ = env.reset()
-    epochs, penalties, reward, = 0, 0, 0
     terminated, truncated = False, False
 
     while not (terminated or truncated):
 
+        # Choose a random action with probability epsilon
         if random.uniform(0, 1) < epsilon:
             action = env.action_space.sample()
+        # Choose the calculated best action with probability 1 - epsilon
         else:
             action = np.argmax(q_table[state])
 
+        # Transition to the next state
         next_state, reward, terminated, truncated, info = env.step(action)
         next_action = np.argmax(q_table[next_state])
 
+        # Update Q-table
         q_table[state, action] = (1 - alpha) * q_table[state, action] + \
             alpha * (reward + gamma * (q_table[next_state, next_action]))
 
-        if reward == -10:
-            penalties += 1
-        epochs += 1
         state = next_state
-
-    all_epochs.append(epochs)
-    all_penalties.append(penalties)
 
     if i % 100 == 0:
         print(f"Episode: {i}")
 
 print("Training finished.\n")
-print(f"Results after {n_episodes} episodes:")
-print(f"Average timesteps per episode: {sum(all_epochs) / n_episodes}")
-print(f"Average penalties per episode: {sum(all_penalties) / n_episodes}")
-
 
 while True:
-    env = gym.make('Taxi-v3', render_mode="human")
+    env = gym.make(env_name, render_mode="human")
     env = TimeLimit(env, 50)
     state, _ = env.reset()
     terminated, truncated = False, False
@@ -162,5 +149,3 @@ while True:
         except KeyboardInterrupt:
             pygame.quit()
             env.close()
-
-    print("Succeeded!") if terminated else print("Did not succed... :(")
