@@ -4,7 +4,6 @@ import gymnasium as gym
 import random
 import seaborn as sns
 import matplotlib.pyplot as plt
-from gymnasium.envs.toy_text.frozen_lake import generate_random_map
 
 
 # ------------------------------ Plotting utils ------------------------------ #
@@ -56,12 +55,14 @@ def plot_q_values_map(qtable, env, map_size):
     plt.show()
 
 
+# ------------------------------ Hyperparameters ----------------------------- #
+
 map_size = 4
 map_name = "4x4"
 p_frozen = 0.8
 alpha = 0.1
 gamma = 0.95
-epsilon = 0.2
+epsilon = 0.1
 n_episodes = 20000
 is_slippery = True
 
@@ -110,6 +111,9 @@ plot_q_values_map(q_table, env, map_size)
 # Play
 env = gym.make("FrozenLake-v1", render_mode="human",
                map_name=map_name, is_slippery=is_slippery)
+
+
+# ---------------------------------- Display --------------------------------- #
 
 while True:
     state, _ = env.reset()
