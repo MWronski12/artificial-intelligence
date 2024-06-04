@@ -6,7 +6,58 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 
-# ------------------------------ Plotting utils ------------------------------ #
+# ------------------------------ Hyperparameters ----------------------------- #
+
+map_size = 4
+map_name = "4x4"
+alpha = 0.1
+gamma = 0.95
+epsilon = 0.1
+temperature = 0.1
+n_episodes = 20000
+is_slippery = True
+strategy = "epsilon-greedy"  # "epsilon-greedy" or "boltzmann"
+
+# ------------------------------- Training loop ------------------------------ #
+
+env = gym.make("FrozenLake-v1", map_name=map_name, desc=None, is_slippery=is_slippery)
+q_table = np.zeros([env.observation_space.n, env.action_space.n])
+
+
+for i in range(n_episodes):
+    # Initial random state
+    state, _ = env.reset()
+    terminated, truncated = False, False
+
+    while not (terminated or truncated):
+
+        # Choose a random action with probability epsilon or best action with probability 1 - epsilon
+        if strategy == "epsilon-greedy":
+            if random.uniform(0, 1) < epsilon:
+                action = env.action_space.sample()
+            else:
+                action = np.argmax(q_table[state])
+
+        # Choose an action based on the Boltzmann distribution
+        elif strategy == "boltzmann":
+            exp_q = np.exp(q_table[state] / temperature)
+            probabilities = exp_q / np.sum(exp_q)
+            action = np.random.choice(np.arange(len(probabilities)), p=probabilities)
+
+        # Transition to the next state
+        next_state, reward, terminated, truncated, info = env.step(action)
+        next_action = np.argmax(q_table[next_state])
+
+        # Update Q-table
+        q_table[state, action] = (1 - alpha) * q_table[state, action] + alpha * (
+            reward + gamma * (q_table[next_state, next_action])
+        )
+
+        state = next_state
+
+
+# --------------------------------- Plotting --------------------------------- #
+
 
 def qtable_directions_map(qtable, map_size):
     """Get the best learned action & map it to arrows."""
@@ -55,81 +106,35 @@ def plot_q_values_map(qtable, env, map_size):
     plt.show()
 
 
-# ------------------------------ Hyperparameters ----------------------------- #
-
-map_size = 4
-map_name = "4x4"
-p_frozen = 0.8
-alpha = 0.1
-gamma = 0.95
-epsilon = 0.1
-n_episodes = 20000
-is_slippery = True
+def plot(q_table, map_size, is_slippery=True):
+    env = gym.make("FrozenLake-v1", render_mode="rgb_array", map_name=f"{map_size}x{map_size}", is_slippery=is_slippery)
+    env.reset()
+    plot_q_values_map(q_table, env, map_size)
 
 
-# ------------------------------- Training loop ------------------------------ #
+plot(q_table, map_size, is_slippery)
 
-# map = generate_random_map(size=map_size, p=p_frozen)
-env = gym.make("FrozenLake-v1", map_name=map_name,
-               desc=None, is_slippery=is_slippery)
-q_table = np.zeros([env.observation_space.n, env.action_space.n])
-
-for i in range(n_episodes + 1):
-    # Initial random state
-    state, _ = env.reset()
-    terminated, truncated = False, False
-
-    while not (terminated or truncated):
-        # Choose a random action with probability epsilon
-        if random.uniform(0, 1) < epsilon:
-            action = env.action_space.sample()
-        # Choose the calculated best action with probability 1 - epsilon
-        else:
-            action = np.argmax(q_table[state])
-
-        # Transition to the next state
-        next_state, reward, terminated, truncated, info = env.step(action)
-        next_action = np.argmax(q_table[next_state])
-
-        # Update Q-table
-        q_table[state, action] = (1 - alpha) * q_table[state, action] + \
-            alpha * (reward + gamma * (q_table[next_state, next_action]))
-
-        state = next_state
-
-    if i % 100 == 0:
-        print(f"Episode: {i}")
-
-print("Training finished.\n")
-
-# Plot
-env = gym.make("FrozenLake-v1", render_mode="rgb_array",
-               map_name=map_name, is_slippery=is_slippery)
-env.reset()
-plot_q_values_map(q_table, env, map_size)
-
-# Play
-env = gym.make("FrozenLake-v1", render_mode="human",
-               map_name=map_name, is_slippery=is_slippery)
+# --------------------------------- Gameplay --------------------------------- #
 
 
-# ---------------------------------- Display --------------------------------- #
+def play(q_table, map_size, is_slippery=True):
+    env = gym.make("FrozenLake-v1", render_mode="human", map_name=f"{map_size}x{map_size}", is_slippery=is_slippery)
 
-while True:
-    state, _ = env.reset()
-    terminated, truncated = False, False
+    while True:
+        state, _ = env.reset()
+        terminated, truncated = False, False
 
-    while not (terminated or truncated):
+        while not (terminated or truncated):
 
-        try:
-            env.render()
-            best_action = np.argmax(q_table[state])
-            state, _, terminated, truncated, _ = env.step(best_action)
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    env.close()
+            try:
+                env.render()
+                best_action = np.argmax(q_table[state])
+                state, _, terminated, truncated, _ = env.step(best_action)
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit()
+                        env.close()
 
-        except KeyboardInterrupt:
-            pygame.quit()
-            env.close()
+            except KeyboardInterrupt:
+                pygame.quit()
+                env.close()
